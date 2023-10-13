@@ -1,8 +1,9 @@
+require('dotenv').config();
 const fetch = require('node-fetch');
 
-const mutinyNetUrl = "https://mutinynet.com/api"
-const newUTXOThreshold = 900
-const pollingInterval = 3000
+const mutinyNetUrl = process.env.MUTINYNET_URL ?? "https://mutinynet.com/api"
+const newUTXOThreshold = process.env.NEW_UTXO_THRESHOLD ?? 900 // experimental feature and possible address reuse (bad practice, but might be nice for dev envs)
+const pollingInterval = process.env.POLLING_INTERVAL ?? 3000 // 3 seconds
 
 async function getCurrentBlockTip() {
   const url = `${mutinyNetUrl}/blocks/tip/height`
@@ -45,6 +46,19 @@ async function isPaid(lastUtxo, amount) {
   }
 }
 
+async function isPaymentConfirmed(lastUtxo) {
+  try {
+    const confirmations = process.env.CONFIRMATIONS //  0 for zero conf
+    const confirmationBlock = lastUtxo.status.block_height
+    const tip = await getCurrentBlockTip()
+    const confirmationCount = tip - confirmationBlock
+    if (confirmationCount >= confirmations) return true
+  } catch (e){
+    console.error(e)
+  }
+  return false
+}
+
 async function isNewUTXO(lastUtxo) {
   try {
     const tip = await getCurrentBlockTip()
@@ -66,13 +80,16 @@ async function getTxnHex(txid) {
 async function buildBlockHookResponse({
   address,
   network = "testnet",
-  confirmations = 6,
+  confirmations,
   metadata
 }) {
   const lastUtxo = await getLastUtxo(address)
   const txid = lastUtxo.txid
   const txnHex = await getTxnHex(txid)
-  const timestamp = lastUtxo.status.block_time * 1000 // convert to milliseconds
+  let timestamp = lastUtxo?.status?.block_time * 1000 // convert to milliseconds
+  if (isNaN(timestamp) || !timestamp){
+    timestamp = new Date().getTime()
+  }
   const blockhookResp = {
     address,
     txid,
@@ -83,6 +100,21 @@ async function buildBlockHookResponse({
     metadata
   };
   return blockhookResp
+}
+
+async function sendWebhook(blockhookResp,) {
+  try {
+    const resp = await fetch(blockhookResp.webhook, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(blockhookResp),
+    });
+    console.log(`Sent webhook for ${blockhookResp.address} with ${blockhookResp.confirmations} confirmations`)
+  } catch (e) {
+    console.error("webhook error", e)
+  }
 }
 
 function addressWatcher({
@@ -101,21 +133,29 @@ function addressWatcher({
         const paid = await isPaid(lastUtxo, amount);
         const newUTXO = await isNewUTXO(lastUtxo);
 
-        if (confirmed && paid && newUTXO) {
-          // Clear the interval and resolve the promise if the condition is met
-          clearInterval(intervalId);
+        if (lastUtxo && address) {
+          const confirmationBlock = lastUtxo?.status?.block_height
+          const tip = await getCurrentBlockTip()
+          const confirmationCount = tip - confirmationBlock
           const blockhooksResp = await buildBlockHookResponse({
             address,
             network,
-            confirmations,
+            confirmations: confirmationCount ? confirmationCount : 0,
             metadata,
             amount,
           });
           blockhooksResp.webhook = webhook
           // console.log("paid! send webhook", blockhooksResp);
-          resolve(blockhooksResp); // Resolve the promise with the desired value
+          await sendWebhook(blockhooksResp)
+          resolve(blockhooksResp);
+          // stop the watchers for confirmed payment
+          const paymentConfirmed = await isPaymentConfirmed(lastUtxo);
+          if (paymentConfirmed && confirmationCount >= 6) {
+            console.log(`Payment Confirmed! Clearing watcher for ${address} with ${confirmationCount} confs`)
+            clearInterval(intervalId);
+          }
         } else {
-          console.log(`not ready yet. fully paid:${paid}, confirmed:${confirmed}, newUTXO:${newUTXO}`);
+          console.log(`mempool watching address ${address}, no activity yet`);
         }
       } catch (error) {
         console.error('An error occurred:', error);
@@ -126,31 +166,7 @@ function addressWatcher({
   });
 }
 
-function test() {
-  const watcher = addressWatcher({
-    address: "tb1pemzeus46wdgzut0a3pg649qjny2s6gxww6eelgukzuaawakucv8sv4nrl2",
-    network: "testnet",
-    confirmations: 6,
-    metadata: "abcd",
-    amount: 1,
-    webhook: "http://localhost:3000/api/public/blockhooks-hook"
-  }).then(async (response) => {
-    console.log('Response received:', response, response.webhook);
-    const resp = await fetch(response.webhook, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(response),
-    });
-    console.log("webhook response", resp.status)
-  }).catch((error) => {
-    console.error('Error:', error);
-  });
-}
-// test()
-
 module.exports = {
   addressWatcher,
-  buildBlockHookResponse
+  buildBlockHookResponse,
 }

@@ -1,6 +1,28 @@
 MutinyHooks
 ===========
 
+## Dev
+
+Run
+```
+yarn start
+```
+
+Test
+```
+yarn test
+```
+
+.env
+```
+MUTINYNET_URL=https://mutinynet.com/api
+NEW_UTXO_THRESHOLD=900
+POLLING_INTERVAL=3000
+CONFIRMATIONS=1
+PORT=6969
+METADATA={SECRET_THAT_YOUR_APP_CAN_CONFIRM | ANYTHING}
+```
+
 Your app subscribes to address changes in the MutinyNet Signet (Inspired by https://blockhooks.io/)
 
 ```
