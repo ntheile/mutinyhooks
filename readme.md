@@ -3,7 +3,7 @@ MutinyHooks
 
 Your app subscribes to address changes in the MutinyNet Signet (Inspired by https://blockhooks.io/)
 
-```json
+```
 HTTP POST
 http://localhost:6969/api/api/v2/watch-address
 
@@ -17,7 +17,7 @@ http://localhost:6969/api/api/v2/watch-address
 ```
 
 When MutinyHooks detects changes on your address it calls your webhook.
-```json
+```
 {
   address: 'tb1pgj6n2w7xmn8ke5gqau07jxreaf6hpvhx8zxl425vwycjg8dzuxeqdhrzun',
   txid: 'c40275693516e2a9e3a7e5401aa7115845d621ada75fabd506b5c61305287a4a',
