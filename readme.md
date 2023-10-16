@@ -62,6 +62,12 @@ docker-compose
     ports:
       - '6969:6969'
     restart: always
+    environment:
+      MUTINYNET_URL: https://mutinynet.com/api
+      POLLING_INTERVAL: 3000
+      CONFIRMATIONS: 1
+      PORT: 6969
+      METADATA: ANYTHING_YOU_WANT_PASSED_BACK_FROM_MUTINYHOOKS
 ```
 
 MutinyNet Links
