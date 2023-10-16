@@ -38,7 +38,7 @@ http://localhost:6969/api/v2/watch-address
 
 ```
 
-When MutinyHooks detects changes on your address it calls your webhook.
+When MutinyHooks detects changes on your address it calls your webhook url and passes back this data:
 ```
 {
   address: 'tb1pgj6n2w7xmn8ke5gqau07jxreaf6hpvhx8zxl425vwycjg8dzuxeqdhrzun',
