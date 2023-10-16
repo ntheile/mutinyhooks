@@ -27,7 +27,7 @@ Your app subscribes to address changes in the MutinyNet Signet (Inspired by http
 
 ```
 HTTP POST
-http://localhost:6969/api/api/v2/watch-address
+http://localhost:6969/api/v2/watch-address
 
 {
   network: 'testnet'
